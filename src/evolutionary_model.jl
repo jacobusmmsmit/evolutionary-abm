@@ -2,31 +2,6 @@ using Agents
 using Distributions
 using StatsBase
 
-"""
-    random_agent_model(model, agent_types)
-Return the id of a random agent from the model of a certain type/s or -1 if there are no agents of this type
-"""
-function random_agent_type(model, agent_types)
-    subdict = Dict(id => agent for (id, agent) in model.agents if typeof(agent) in agent_types)
-    try 
-        model[rand(keys(subdict))].id
-    catch
-        -1
-    end
-end
-
-"""
-    increment_dict!(dict, key, by=1)
-Modify a dictionary element by a specified amount or set it to this amount if the key isn't present in the dictionary.
-"""
-function increment_dict!(dict, key, by=1)
-     if haskey(dict, key)
-        dict[key] += by
-    else
-        dict[key] = by
-    end
-end
-
 mutable struct Sitter <: AbstractAgent
     id::Int
     eggs_laid::Int # How many eggs the agent lays
@@ -50,8 +25,11 @@ mutable struct Cheater <: AbstractAgent
 end
 
 # Move order: Cheaters, Identifiers, Sitters, Model
-# Could be in for loop to lay more than 1 egg
 
+"""
+    agent_step!(cheater::Cheater, model)
+Cheaters lay their eggs in a random nest. Note: cheaters do not build nests.
+"""
 function agent_step!(cheater::Cheater, model)
     if random_agent_type(model, [Sitter, Identifier]) != -1 # Will return -1 if there are no nests
         for _ in 1:cheater.eggs_laid
@@ -61,6 +39,10 @@ function agent_step!(cheater::Cheater, model)
     end
 end
 
+"""
+    agent_step!(identifier::Identifier, model)
+Identifiers lay eggs in their own nest, then identify their eggs successfully (with a certain probability) and destroy the rest 
+"""
 function agent_step!(identifier::Identifier, model)
     p = identifier.p_identify
     id = identifier.id
@@ -77,10 +59,47 @@ function agent_step!(identifier::Identifier, model)
     end
 end
 
+"""
+    agent_step!(sitter::Sitter, model)
+Sitters simply lay eggs in their own nest.
+"""
+
 function agent_step!(sitter::Sitter, model)
     sitter.egg_ids[sitter.id] = sitter.eggs_laid
 end
 
+
+
+"""
+    initialise_agents!(model, num_sitters, num_identifiers, num_cheaters)
+This function is called in the creation of a new model and can also be used to "reset" a model
+so it doesn't need to be re-defined for repeated testing.
+"""
+function initialise_agents!(model, num_sitters, num_identifiers, num_cheaters)
+    genocide!(model)
+    id = 0
+    for _ in 1:num_sitters
+        id += 1
+        sitter = Sitter(id, model.eggs_laid, Dict{Int, Int}(), 0)
+        add_agent!(sitter, model)
+    end
+    for _ in 1:num_identifiers
+        id += 1
+        identifier = Identifier(id, model.eggs_laid, Dict{Int, Int}(), model.p_identify, 0)
+        add_agent!(identifier, model)
+    end
+    for _ in 1:num_cheaters
+        id += 1
+        cheater = Cheater(id, model.eggs_laid, Dict{Int, Int}(), 0)
+        add_agent!(cheater, model)
+    end
+end
+
+
+"""
+    reproduce!(agent_type, model)
+Adds an agent of a certain type to the model using the model's predefined parameters.
+"""
 function reproduce!(agent_type, model)
     id = nextid(model)
     if agent_type == Cheater
@@ -97,6 +116,13 @@ function reproduce!(agent_type, model)
 end
 
 
+"""
+    model_step!(model)
+Performs a single step of the model which does the following:
+1. Calculate the utility of every bird based on the formula for its type.
+2. Kill a certian percentage of the population.
+3. Repopulate the population (to its previous value) with types weighted by each type's total utility.
+"""
 function model_step!(model)
     nonextinct_types = unique(typeof.(allagents(model)))
 
@@ -127,8 +153,15 @@ function model_step!(model)
     
     # Resample population weighted by utility
     total_agents = nagents(model)
-    genocide!(model) # Kill all current agents before next batch are created in order to keep total_agents the same
-    n_offspring = countmap(sample(nonextinct_types, Weights(utilities), total_agents))
+    killed_agents = Int(ceil(total_agents/1))
+    
+    for _ in 1:killed_agents
+        kill_agent!(random_agent(model), model)
+    end
+    
+    # genocide!(model) # Kill all current agents before next batch are created in order to keep total_agents the same
+    
+    n_offspring = countmap(Distributions.sample(nonextinct_types, Weights(utilities), killed_agents))
     for (agent_type, count) in n_offspring
         for _ in 1:n_offspring[agent_type]
             reproduce!(agent_type, model)
@@ -146,6 +179,17 @@ function model_step!(model)
     end
 end
 
+"""
+    evolutionary_model(kwargs...)
+Creates a model and initialises agents using the following parameters:
+* num_sitters/num_identifiers/num_cheaters: the number of each type to initialise the model with,
+* hatch_utility: the utility given to an agent for each successful egg that hatches,
+* egg_cost: the cost per egg of sitting on eggs in your own nest,
+* eggs_laid: the number of eggs that each agent lays per step,
+* identify cost: the cost for identifiers to identify their eggs each step,
+* p_identify: the probability that the identifier will correctly identify its own egg or a foreign egg (per egg, not aggregate),
+* p_mutation: the probability per step that an agent in the population will mutate to an agent of any type
+"""
 function evolutionary_model(;
         num_sitters = 1,
         num_identifiers = 1,
@@ -177,23 +221,6 @@ function evolutionary_model(;
     )
     
     # Add agents to model
-    id = 0
-    for _ in 1:num_sitters
-        id += 1
-        sitter = Sitter(id, eggs_laid, Dict{Int, Int}(), 0)
-        add_agent!(sitter, model)
-    end
-    
-    for _ in 1:num_identifiers
-        id += 1
-        identifier = Identifier(id, eggs_laid, Dict{Int, Int}(), p_identify, 0)
-        add_agent!(identifier, model)
-    end
-    
-    for _ in 1:num_cheaters
-        id += 1
-        cheater = Cheater(id, eggs_laid, Dict{Int, Int}(), 0)
-        add_agent!(cheater, model)
-    end
+    initialise_agents!(model, num_sitters, num_identifiers, num_cheaters)
     return model
 end

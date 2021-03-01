@@ -1,6 +1,15 @@
-module CustomFunctions
+using Agents
 
-export random_agent_model, increment_dict!
+"""
+    magangle(x1, y1, x2, y2)
+Return the magnitude and angle of the line given by two points
+"""
+function magangle(x1, y1, x2, y2)
+    c = (x2-x1) + (y2-y1)*im
+    return abs(c), angle(c)
+end
+
+rescale(x) = (x .- minimum(x))./(maximum(x)-minimum(x))
 
 """
     random_agent_model(model, agent_types)
@@ -25,6 +34,4 @@ function increment_dict!(dict, key, by=1)
     else
         dict[key] = by
     end
-end
-
 end
