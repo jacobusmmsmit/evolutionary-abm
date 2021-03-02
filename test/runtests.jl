@@ -4,8 +4,8 @@ using Test
     using Agents
     using Distributions
     using StatsBase
-    include("evolutionary_model.jl");
-    include("helper_functions.jl");
+    include("../src/evolutionary_model.jl");
+    include("../src/helper_functions.jl");
 
     # Can it handle a single type going extinct?
     @test begin 
