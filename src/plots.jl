@@ -82,22 +82,17 @@ model = evolutionary_model(;
         )
 
 total_agents = 30
-for i in 0:total_agents
-    for j in 0:total_agents
-        if i + j > total_agents
-            continue
-        end
-        initialise_agents!(model, i, j, total_agents - i - j)
+for i in 0:total_agents, j in 0:total_total_agents - i
+    initialise_agents!(model, i, j, total_agents - i - j)
 
-        results, _ = run!(model, agent_step!, model_step!, 1; adata=adata, replicates=100);
-        
-        results = results |>
-            df -> filter(:step => !=(0), df) |>
-            df -> combine(df, :count_sitters => mean => :xend, :count_identifiers => mean => :yend)
-        results[:, :xstart] .= i
-        results[:, :ystart] .= j
-        final_results = [final_results; results]
-    end
+    results, _ = run!(model, agent_step!, model_step!, 1; adata=adata, replicates=100);
+    
+    results = results |>
+        df -> filter(:step => !=(0), df) |>
+        df -> combine(df, :count_sitters => mean => :xend, :count_identifiers => mean => :yend)
+    results[:, :xstart] .= i
+    results[:, :ystart] .= j
+    final_results = [final_results; results]
 end
 
 ## This code runs on DataFrames v0.21
