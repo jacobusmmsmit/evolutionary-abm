@@ -80,17 +80,17 @@ function initialise_agents!(model, num_sitters, num_identifiers, num_cheaters)
     id = 0
     for _ in 1:num_sitters
         id += 1
-        sitter = Sitter(id, model.eggs_laid, Dict{Int, Int}(), 0)
+        sitter = Sitter(id, model.eggs_laid, Dict{Int,Int}(), 0)
         add_agent!(sitter, model)
     end
     for _ in 1:num_identifiers
         id += 1
-        identifier = Identifier(id, model.eggs_laid, Dict{Int, Int}(), model.p_identify, 0)
+        identifier = Identifier(id, model.eggs_laid, Dict{Int,Int}(), model.p_identify, 0)
         add_agent!(identifier, model)
     end
     for _ in 1:num_cheaters
         id += 1
-        cheater = Cheater(id, model.eggs_laid, Dict{Int, Int}(), 0)
+        cheater = Cheater(id, model.eggs_laid, Dict{Int,Int}(), 0)
         add_agent!(cheater, model)
     end
 end
@@ -103,16 +103,28 @@ Adds an agent of a certain type to the model using the model's predefined parame
 function reproduce!(agent_type, model)
     id = nextid(model)
     if agent_type == Cheater
-        offspring = Cheater(id, model.eggs_laid, Dict{Int, Int}(), 0)
+        offspring = Cheater(id, model.eggs_laid, Dict{Int,Int}(), 0)
         model.cheaters_extinct = 0
     elseif agent_type == Identifier
-        offspring = Identifier(id, model.eggs_laid, Dict{Int, Int}(), model.p_identify, 0)
+        offspring = Identifier(id, model.eggs_laid, Dict{Int,Int}(), model.p_identify, 0)
         model.identifiers_extinct = 0
     else
-        offspring = Sitter(id, model.eggs_laid, Dict{Int, Int}(), 0)
+        offspring = Sitter(id, model.eggs_laid, Dict{Int,Int}(), 0)
         model.sitters_extinct = 0
     end
     add_agent!(offspring, model)
+end
+
+
+"""
+    get_total_utility(model, agent_type)
+Calculates the utility for the specified type
+"""
+function get_total_utility(model, agent_type)
+    agents = collect(values(model.agents))
+    filter!(a -> a isa agent_type, agents)
+    utilities = getfield.(agents, :utility)
+    return sum(utilities)
 end
 
 
@@ -142,18 +154,20 @@ function model_step!(model)
             Int(isa(agent, Identifier)) * -model.identify_cost
     end
 
-    utilities = [
-        sum(
-            agent.utility
-            for
-            (key, agent) in
-            Dict(id => agent for (id, agent) in model.agents if agent isa agent_type)
-        ) for agent_type in nonextinct_types
-    ]
+    # utilities = [
+    #     sum(
+    #         agent.utility
+    #         for
+    #         (key, agent) in
+    #         Dict(id => agent for (id, agent) in model.agents if agent isa agent_type)
+    #     ) for agent_type in nonextinct_types
+    # ]
+
+    utilities = map(agent_type -> get_total_utility(model, agent_type), nonextinct_types)
     
     # Resample population weighted by utility
     total_agents = nagents(model)
-    killed_agents = Int(ceil(total_agents/1))
+    killed_agents = Int(ceil(total_agents / 1))
     
     for _ in 1:killed_agents
         kill_agent!(random_agent(model), model)
@@ -191,22 +205,22 @@ Creates a model and initialises agents using the following parameters:
 * p_mutation: the probability per step that an agent in the population will mutate to an agent of any type
 """
 function evolutionary_model(;
-        num_sitters = 1,
-        num_identifiers = 1,
-        num_cheaters = 1,
-        hatch_utility = 5.0,
-        egg_cost = 2.0,
-        eggs_laid = 1,
-        identify_cost = 1.0,
-        p_identify = 1,
+        num_sitters=1,
+        num_identifiers=1,
+        num_cheaters=1,
+        hatch_utility=5.0,
+        egg_cost=2.0,
+        eggs_laid=1,
+        identify_cost=1.0,
+        p_identify=1,
         p_mutation=0
     )
     
     # Create model
     model = ABM(
-        Union{Cheater, Identifier, Sitter},
-        scheduler = by_type(false, true),
-        properties = Dict(
+        Union{Cheater,Identifier,Sitter},
+        scheduler=by_type(false, true),
+        properties=Dict(
             :eggs_laid => eggs_laid,
             :hatch_utility => hatch_utility,
             :egg_cost => egg_cost,
@@ -217,10 +231,11 @@ function evolutionary_model(;
             :identifiers_extinct => 1,
             :cheaters_extinct => 1,
         ),
-        warn = false # For use with mixed-agent models, supresses type warning
+        warn=false # For use with mixed-agent models, supresses type warning
     )
     
     # Add agents to model
     initialise_agents!(model, num_sitters, num_identifiers, num_cheaters)
     return model
 end
+
