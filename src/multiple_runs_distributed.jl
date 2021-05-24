@@ -22,13 +22,12 @@ addprocs(3)
 
     total_agents = 10
     num_reps = 10
-    models = [distributed_model(total_agents, i, j) for i in 1:(total_agents - 1) for j in 1:total_agents - i - 1 for replicates in 1:num_reps]
-
-    # Functions to collect data
-    sitters(a) = typeof(a) == Sitter
-    identifiers(a) = typeof(a) == Identifier
-    cheaters(a) = typeof(a) == Cheater
-    adata = [(sitters, count), (identifiers, count), (cheaters, count)]
+    models = [
+        distributed_model(total_agents, i, j)
+            for i in 1:(total_agents - 1)
+                for j in 1:total_agents - i - 1
+                    for replicates in 1:num_reps
+    ]
 end
 
 dist_bench = @benchmark ensemblerun!(models, agent_step!, model_step!, 1; parallel=true)
