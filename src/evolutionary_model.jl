@@ -63,7 +63,6 @@ end
     agent_step!(sitter::Sitter, model)
 Sitters simply lay eggs in their own nest.
 """
-
 function agent_step!(sitter::Sitter, model)
     sitter.egg_ids[sitter.id] = sitter.eggs_laid
 end
