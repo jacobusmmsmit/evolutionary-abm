@@ -1,6 +1,7 @@
 using Agents
 using Distributions
 using StatsBase
+using DataFrames
 
 mutable struct Sitter <: AbstractAgent
     id::Int
@@ -63,6 +64,7 @@ end
     agent_step!(sitter::Sitter, model)
 Sitters simply lay eggs in their own nest.
 """
+
 function agent_step!(sitter::Sitter, model)
     sitter.egg_ids[sitter.id] = sitter.eggs_laid
 end
@@ -81,16 +83,19 @@ function initialise_agents!(model, num_sitters, num_identifiers, num_cheaters)
         id += 1
         sitter = Sitter(id, model.eggs_laid, Dict{Int,Int}(), 0)
         add_agent!(sitter, model)
+        model.nagents_type[1] += 1
     end
     for _ in 1:num_identifiers
         id += 1
         identifier = Identifier(id, model.eggs_laid, Dict{Int,Int}(), model.p_identify, 0)
         add_agent!(identifier, model)
+        model.nagents_type[2] += 1
     end
     for _ in 1:num_cheaters
         id += 1
         cheater = Cheater(id, model.eggs_laid, Dict{Int,Int}(), 0)
         add_agent!(cheater, model)
+        model.nagents_type[3] += 1
     end
 end
 
@@ -104,12 +109,15 @@ function reproduce!(agent_type, model)
     if agent_type == Cheater
         offspring = Cheater(id, model.eggs_laid, Dict{Int,Int}(), 0)
         model.cheaters_extinct = 0
+        model.nagents_type[3] += 1
     elseif agent_type == Identifier
         offspring = Identifier(id, model.eggs_laid, Dict{Int,Int}(), model.p_identify, 0)
         model.identifiers_extinct = 0
+        model.nagents_type[2] += 1
     else
         offspring = Sitter(id, model.eggs_laid, Dict{Int,Int}(), 0)
         model.sitters_extinct = 0
+        model.nagents_type[1] += 1
     end
     add_agent!(offspring, model)
 end
@@ -122,8 +130,12 @@ Calculates the utility for the specified type
 function get_total_utility(model, agent_type)
     agents = collect(values(model.agents))
     filter!(a -> a isa agent_type, agents)
-    utilities = getfield.(agents, :utility)
-    return sum(utilities)
+    if !isempty(agents)
+        utilities = getfield.(agents, :utility)
+        return sum(utilities)
+    else
+        return 0
+    end
 end
 
 
@@ -148,25 +160,20 @@ function model_step!(model)
 
     # Calculate utility of each agent and then type
     for (key, agent) in model.agents
-        agent.utility = model.hatch_utility * get(hatched_egg_dict, key, 0) +
-            Int(!isa(agent, Cheater)) * -model.egg_cost * get(agent.egg_ids, key, 0) +
-            Int(isa(agent, Identifier)) * -model.identify_cost
+        agent.utility = (model.hatch_utility * get(hatched_egg_dict, key, 0)) +
+            (Int(!isa(agent, Cheater)) * -model.egg_cost * sum(values(agent.egg_ids))) +
+            (Int(isa(agent, Identifier)) * -model.identify_cost)
     end
 
-    # utilities = [
-    #     sum(
-    #         agent.utility
-    #         for
-    #         (key, agent) in
-    #         Dict(id => agent for (id, agent) in model.agents if agent isa agent_type)
-    #     ) for agent_type in nonextinct_types
-    # ]
-
     utilities = map(agent_type -> get_total_utility(model, agent_type), nonextinct_types)
+
+    model.utilities = collect(map(agent_type -> get_total_utility(model, agent_type), [Sitter, Identifier, Cheater]))
+    model.nag = model.nagents_type
     
     # Resample population weighted by utility
     total_agents = nagents(model)
     killed_agents = Int(ceil(total_agents / 1))
+    model.nagents_type = [0, 0, 0]
     
     for _ in 1:killed_agents
         kill_agent!(random_agent(model), model)
@@ -229,6 +236,9 @@ function evolutionary_model(;
             :sitters_extinct => 1,
             :identifiers_extinct => 1,
             :cheaters_extinct => 1,
+            :utilities => [0.0, 0.0, 0.0],
+            :nagents_type => [0, 0, 0],
+            :nag => [0, 0, 0]
         ),
         warn=false # For use with mixed-agent models, supresses type warning
     )
@@ -237,4 +247,3 @@ function evolutionary_model(;
     initialise_agents!(model, num_sitters, num_identifiers, num_cheaters)
     return model
 end
-

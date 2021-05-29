@@ -35,3 +35,15 @@ function increment_dict!(dict, key, by=1)
         dict[key] = by
     end
 end
+
+"""
+    get_total_count(model, agent_type)
+Calculates the number of agents for the specified type
+"""
+function get_total_count(model, agent_type)
+    agents = collect(values(model.agents))
+    filter!(a -> a isa agent_type, agents)
+    length(agents)
+end
+
+NE(h, e, i) = [e*(h-e-i)/(h*(i+e)), e/h, i/(i+e)]

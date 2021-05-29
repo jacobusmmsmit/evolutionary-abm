@@ -1,8 +1,9 @@
 name = "evolutionary-abm"
 
 [deps]
-DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-Lazy = "50d2b5c4-7a5e-59d5-8109-a42b560f39c0"
-StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Agents = "46ada45e-f475-11e8-01d0-f70cc89e6671"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+ImageFiltering = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
+Loess = "4345ca2d-374a-55d4-8d30-97f9976e7612"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+TernaryPlots = "1f5e811d-5acb-4dfc-9a45-b3a27d369aae"
